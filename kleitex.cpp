@@ -5,12 +5,12 @@
 #include "squishpng.h"
 
 typedef struct kleitex_header {
-  char sig[8];
+  char magic[4];
+  unsigned int header;
   unsigned short width;
   unsigned short height;
-  unsigned short unk1;
-  unsigned short unk2;
-  unsigned short unk3;
+  unsigned short pitch;
+  unsigned int size;
 } kleitex_header_t;
 
 int main(int argc, char **argv)
@@ -24,7 +24,6 @@ int main(int argc, char **argv)
 
   FILE* fp;
   kleitex_header_t head;
-  unsigned int len;
   DxtData dxt;
   Image* im=new Image();
 
@@ -34,20 +33,25 @@ int main(int argc, char **argv)
     std::cout << "Cannot open " << argv[1] << std::endl;
     return -1;
   }
-  fseek(fp,0,SEEK_END);
-  len=ftell(fp);
-  fseek(fp,0,SEEK_SET);
 
-  len=len-sizeof(kleitex_header);
+  fseek(fp,0,SEEK_END);
+  fseek(fp,0,SEEK_SET);
   fread(&head,sizeof(head),1,fp);
 
-  std::cout << "SIG: " << head.sig << std::endl;
+  int mipmaps = (head.header >> 13) & 31;
+  std::cout << "MAGIC: " << head.magic << std::endl;
+  std::cout << "MIPMAPS: " << mipmaps << std::endl;
   std::cout << "WIDTH: " << head.width << std::endl;
   std::cout << "HEIGHT: " << head.height << std::endl;
 
+  int ignore_length = (mipmaps-1) * 10;
+  char *ignore = (char *)std::malloc(ignore_length);
+  fread(ignore, ignore_length, 1, fp);
+  std::free(ignore);
+
   //load dxt data
-  dxt.data.Reset(len);
-  fread(dxt.data.Get(),len,1,fp);
+  dxt.data.Reset(head.size);
+  fread(dxt.data.Get(),head.size,1,fp);
   dxt.width=head.width;
   dxt.height=head.height;
   dxt.format=squish::kDxt5;
